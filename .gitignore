@@ -1,0 +1,15 @@
+# Rust 编译产物
+**/target/
+# IDE
+.vscode/
+.idea/
+*.iml
+# 系统
+.DS_Store
+Thumbs.db
+# 备份/中间产物
+*.bak
+*.orig
+*.rej
+*.swp
+*~

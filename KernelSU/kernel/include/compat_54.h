@@ -1,0 +1,94 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Compatibility shims for building SukiSU on Linux 5.4 (OnePlus 9 / sm8350).
+ *
+ * SukiSU main branch targets modern Android common kernels (5.10+/6.x).
+ * Several helpers it uses were introduced later:
+ *   TWA_RESUME                       5.8  (enum task_work_notify_mode)
+ *   strncpy_from_user_nofault        5.8
+ *   copy_to_kernel_nofault           5.8  (5.4 equivalent: probe_kernel_write)
+ *   security_inode_init_security_anon 5.12
+ * Provide equivalents so the driver compiles and behaves sanely.
+ */
+#ifndef __KSU_COMPAT_54_H
+#define __KSU_COMPAT_54_H
+
+#include <linux/version.h>
+#include <linux/uaccess.h>
+#include <linux/sched/task.h>
+#include <linux/sched/signal.h>
+#include <linux/fs.h>
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0)
+
+#ifndef TWA_RESUME
+#define TWA_RESUME true
+#endif
+
+static inline long ksu_54_strncpy_from_user_nofault(char *dst,
+                                                    const void __user *src,
+                                                    long count)
+{
+    if (unlikely(!access_ok(src, count)))
+        return -EFAULT;
+    return strncpy_from_user(dst, src, count);
+}
+#define strncpy_from_user_nofault ksu_54_strncpy_from_user_nofault
+
+static inline long ksu_54_copy_to_kernel_nofault(void *dst, const void *src,
+                                                 size_t size)
+{
+    return probe_kernel_write(dst, src, size);
+}
+#define copy_to_kernel_nofault ksu_54_copy_to_kernel_nofault
+
+/*
+ * 5.4 has no copy_from_user_nofault() (added in 5.8) and no
+ * copy_to_user_nofault() either. Emulate both.
+ */
+static inline long ksu_54_copy_from_user_nofault(void *dst,
+                                                 const void __user *src,
+                                                 size_t size)
+{
+    /* 5.4 equivalent: set_fs(USER_DS) + access_ok + __copy_from_user_inatomic */
+    return probe_user_read(dst, src, size);
+}
+#define copy_from_user_nofault ksu_54_copy_from_user_nofault
+
+/*
+ * 5.8 added copy_to_user_nofault(); its 5.4 equivalent is probe_user_write()
+ * (set_fs(USER_DS) + access_ok() + __copy_to_user_inatomic()).
+ *
+ * It MUST be a write: using probe_kernel_read() here inverts the direction,
+ * so the kernel ends up storing into the user pointer and panics in
+ * __arch_copy_from_user() the first time ksu_sys_fstat() patches init.rc.
+ */
+static inline long ksu_54_copy_to_user_nofault(void __user *dst,
+                                               const void *src, size_t size)
+{
+    return probe_user_write(dst, src, size);
+}
+#define copy_to_user_nofault ksu_54_copy_to_user_nofault
+
+#endif /* < 5.8 */
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 12, 0)
+
+/*
+ * 5.4 has no anonymous-inode LSM initialisation. Returning 0 skips setting a
+ * security context on the anonymous inode; root functionality is unaffected.
+ */
+static inline int ksu_54_security_inode_init_security_anon(struct inode *inode,
+                                                           const struct qstr *name,
+                                                           const struct inode *context_inode)
+{
+    (void)inode;
+    (void)name;
+    (void)context_inode;
+    return 0;
+}
+#define security_inode_init_security_anon ksu_54_security_inode_init_security_anon
+
+#endif /* < 5.12 */
+
+#endif /* __KSU_COMPAT_54_H */
