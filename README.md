@@ -2,7 +2,7 @@
 
 为**一加 9（lemonade / LE2110）** 定制的、集成 **SukiSU-Ultra v4.3.0** 的内核集成方案。
 
-> 这是首个针对一加 9（sm8350）5.4 内核的 SukiSU 完整集成，全网首发。root 授权、管理器、模块功能均已实测打通。
+> root 授权链与管理器 crown 已实机验证。模块仅验证了安装与脚本执行的基础链路，**Magic Mount / Zygisk 等未测试**，详见下方「验证状态」。
 
 ## 适配信息
 
@@ -127,11 +127,22 @@ fastboot flash boot_a boot.img
 fastboot reboot
 ```
 
-## 验证结果
+## 验证状态
 
-- root 授权链：`su -c id` 返回 `uid=0(root) context=u:r:ksu:s0`
-- 管理器：`com.sukisu.ultra` 正常 crown，显示「工作中」
-- 模块：安装、post-fs-data.sh / service.sh 执行、文件落盘全部实测通过
+### 已实测通过
+
+- **root 授权链**：`su -c id` 返回 `uid=0(root) context=u:r:ksu:s0`
+- **管理器**：`com.sukisu.ultra` 正常 crown，显示「工作中」
+- **模块基础链路**：用一个只写日志、写文件的最简模块验证通过 —— `ksud module install` 安装成功、`module list` 可见、`post-fs-data.sh` 与 `service.sh` 开机正常执行、脚本落盘文件内容正确
+
+### 尚未验证
+
+**模块功能没有做完整测试**，以下都还没验证过，请按"能用但未充分测试"看待：
+
+- **Magic Mount 文件替换**（如用模块覆盖 `system/app` 下的文件）未测
+- **Zygisk** 及依赖 Zygisk 的模块未测
+- 需要真实 system 分区改写的复杂模块未测
+- 开机阶段 umount / 挂载相关路径未做回归测试
 
 ## 许可
 
