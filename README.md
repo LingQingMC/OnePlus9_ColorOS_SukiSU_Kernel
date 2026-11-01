@@ -1,8 +1,20 @@
 # OnePlus 9 (lemonade) SukiSU Kernel
 
-为**一加 9（lemonade / LE2110）** 定制的、集成 **SukiSU-Ultra v4.3.0** 的内核集成方案，目标系统 **ColorOS 14.0.0.1901(CN01)**，内核 **Linux 5.4.254**。
+为**一加 9（lemonade / LE2110）** 定制的、集成 **SukiSU-Ultra v4.3.0** 的内核集成方案。
 
 > 这是首个针对一加 9（sm8350）5.4 内核的 SukiSU 完整集成，全网首发。root 授权、管理器、模块功能均已实测打通。
+
+## 适配信息
+
+| 项目 | 值 |
+|------|-----|
+| 机型 | 一加 9（lemonade / LE2110 / sm8350） |
+| **底包版本** | **ColorOS 14.0.0.1901（CN01）** |
+| 内核基线 | Linux 5.4.254-qgki（OnePlusOSS `oneplus/sm8350_u_14.0.0_oneplus9`） |
+| SukiSU 版本 | SukiSU-Ultra v4.3.0 |
+| 编译工具链 | AOSP clang 11.0.2（r383902）+ LLD 11.0.2 |
+
+> **底包版本很重要**：本内核的 ramdisk、厂商 `.ko` 模块、AVB 分区布局都取自 **ColorOS 14.0.0.1901(CN01)** 原机。底包版本不同（尤其跨大版本或不同 CN/EEA 区域版本）会导致内核模块版本不匹配、无法开机。**请先确认你的底包是这个版本再刷入。**
 
 ---
 
@@ -64,15 +76,18 @@ SukiSU-Ultra main 分支面向 5.10+，5.4 上缺以下能力，本仓库已逐�
    ln -s KernelSU/kernel drivers/kernelsu
    ```
 
-3. 在 `drivers/Makefile` 和 `drivers/Kconfig` 里加入 kernelsu 条目（参考 SukiSU 官方集成文档）。
-
-4. 应用内核主树补丁：
+3. 应用内核主树补丁（共 6 处，直接覆盖）：
    ```bash
-   cp kernel-patches/kernel/module.c           kernel/module.c
-   cp kernel-patches/security/selinux/ss/services.c  security/selinux/ss/services.c
+   cp kernel-patches/drivers/Makefile                     drivers/Makefile
+   cp kernel-patches/drivers/Kconfig                      drivers/Kconfig
+   cp kernel-patches/kernel/module.c                      kernel/module.c
+   cp kernel-patches/fs/namespace.c                       fs/namespace.c
+   cp kernel-patches/include/linux/pgtable.h              include/linux/pgtable.h
+   cp kernel-patches/security/selinux/ss/services.c       security/selinux/ss/services.c
    ```
+   其中 `drivers/Makefile`（`obj-$(CONFIG_KSU) += kernelsu/`）和 `drivers/Kconfig`（`source "drivers/kernelsu/Kconfig"`）是 SukiSU 的编译入口，缺了不会编进去。
 
-5. 用 `config/lemonade_sukisu.config` 作为编译配置（含 `CONFIG_KSU=y`）。
+4. 用 `config/lemonade_sukisu.config` 作为编译配置（含 `CONFIG_KSU=y`）。
 
 ### 编译
 
@@ -89,6 +104,12 @@ make O=out2 ARCH=arm64 \
 ```
 
 ## 打包与刷入
+
+### 刷入前提
+
+- **底包必须是 ColorOS 14.0.0.1901（CN01）**。本内核的 ramdisk 与厂商模块取自该版本，其他底包版本不保证兼容。
+- bootloader 已解锁。
+- 准备好 `vbmeta_a` / `vbmeta_system_a` / `vbmeta_vendor_a` 三个分区的原始镜像（可从当前底包 `dump`）。
 
 用 `mkbootimg` 打包（header v3，ramdisk 用原机）：
 ```bash
